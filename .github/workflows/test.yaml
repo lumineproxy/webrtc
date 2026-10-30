@@ -1,5 +1,5 @@
-# Fork-maintained workflow. Native jobs reuse Pion's shared configuration;
-# WASM stays local to pin a stable Node.js version for its dependencies.
+# Fork-maintained workflow. Linux/Windows jobs reuse Pion's configuration;
+# local macOS/WASM jobs pin available runners and a stable Node.js runtime.
 # SPDX-FileCopyrightText: 2026 The Pion community <https://pion.ly>
 # SPDX-License-Identifier: MIT
 
@@ -40,16 +40,34 @@ jobs:
       go-version: ${{ matrix.go }}
 
   test-macos:
-    uses: pion/.goassets/.github/workflows/test-macos.reusable.yml@main
+    name: Go macOS ${{ matrix.go }}
+    runs-on: macos-26-intel
+    permissions:
+      contents: read
     strategy:
       matrix:
         go: ["1.27", "1.26"] # auto-update/supported-go-version-list
       fail-fast: false
-    with:
-      go-version: ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/Library/Caches
+          key: ${{ runner.os }}-${{ runner.arch }}-macos-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-macos-go-
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Run tests
+        shell: bash
+        run: |
+          if [ -f .github/.ci.conf ]; then . .github/.ci.conf; fi
+          go test -race ./...
 
   test-wasm:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     name: WASM
     permissions:
       contents: read
