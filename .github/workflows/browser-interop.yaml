@@ -53,6 +53,36 @@ jobs:
           persist-credentials: false
       - name: Run browser interoperability tests
         uses: ./
+        env:
+          DEBUG: ${{ matrix.browser == 'safari' && 'vitest:browser:*' || '' }}
         with:
           webrtc-path: webrtc
           browser: ${{ matrix.browser }}
+      - name: Collect Safari startup diagnostics
+        if: failure() && matrix.browser == 'safari'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/safari-diagnostics"
+          {
+            sw_vers
+            /usr/bin/safaridriver --version
+            defaults read /Applications/Safari.app/Contents/Info CFBundleShortVersionString
+          } > "$RUNNER_TEMP/safari-diagnostics/versions.txt"
+          ps -axo pid,ppid,state,etime,comm > "$RUNNER_TEMP/safari-diagnostics/processes.txt"
+          /usr/bin/log show --last 5m --style compact \
+            --predicate 'process == "safaridriver" OR process == "Safari"' \
+            > "$RUNNER_TEMP/safari-diagnostics/safari.log"
+      - name: Capture Safari startup screen
+        if: failure() && matrix.browser == 'safari'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/safari-diagnostics"
+          /usr/sbin/screencapture -x "$RUNNER_TEMP/safari-diagnostics/screen.png"
+      - name: Upload Safari startup diagnostics
+        if: failure() && matrix.browser == 'safari'
+        uses: actions/upload-artifact@v7
+        with:
+          name: safari-startup-${{ matrix.os }}
+          path: ${{ runner.temp }}/safari-diagnostics
+          if-no-files-found: error
+          retention-days: 7

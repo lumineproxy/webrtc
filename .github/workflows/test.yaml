@@ -1,5 +1,5 @@
-# Fork-maintained workflow. Linux/Windows jobs reuse Pion's configuration;
-# local macOS/WASM jobs pin available runners and a stable Node.js runtime.
+# Fork-maintained workflow. Windows/i386 jobs reuse Pion's configuration;
+# local jobs retain Linux coverage artifacts and pin available macOS/WASM runners.
 # SPDX-FileCopyrightText: 2026 The Pion community <https://pion.ly>
 # SPDX-License-Identifier: MIT
 
@@ -12,14 +12,47 @@ on:
 
 jobs:
   test:
-    uses: pion/.goassets/.github/workflows/test.reusable.yml@main
+    name: Go Linux ${{ matrix.go }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     strategy:
       matrix:
         go: ["1.27", "1.26"] # auto-update/supported-go-version-list
       fail-fast: false
-    with:
-      go-version: ${{ matrix.go }}
-    secrets: inherit
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Set up coverage runner
+        run: go install github.com/ory/go-acc@latest
+      - name: Run pre-test hook
+        run: |
+          if [ -f .github/.ci.conf ]; then . .github/.ci.conf; fi
+          if [ -n "${PRE_TEST_HOOK}" ]; then ${PRE_TEST_HOOK}; fi
+      - name: Run race tests and benchmarks with coverage
+        run: |
+          if [ -f .github/.ci.conf ]; then . .github/.ci.conf; fi
+          set -euo pipefail
+          go-acc -o cover.out ./... -- -bench=. -v -race 2>&1 | tee /tmp/gotest.log
+      - name: Run post-test hook
+        run: |
+          if [ -f .github/.ci.conf ]; then . .github/.ci.conf; fi
+          if [ -n "${POST_TEST_HOOK}" ]; then ${POST_TEST_HOOK}; fi
+      - name: Upload test log
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-log-${{ matrix.go }}
+          path: /tmp/gotest.log
+          if-no-files-found: error
+      - name: Upload coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ matrix.go }}
+          path: cover.out
+          if-no-files-found: error
 
   test-i386:
     uses: pion/.goassets/.github/workflows/test-i386.reusable.yml@main

@@ -49,6 +49,9 @@ This makes learning and debugging easier, this WebRTC library was written to als
 
 ### Tested
 The Lumine fork runs the supported Go-version race suites and browser interoperability checks in GitHub Actions. Its local macOS jobs use standard Intel runners because hosted arm64 jobs have been cancelled without acquiring a runner. The browser matrix retains Chrome, Firefox, Edge, and Safari; WASM uses Ubuntu LTS and stable Node.js 24 with dependency engine checks enabled.
+Linux race tests and benchmarks keep their test logs and aggregate `cover.out`
+coverage as GitHub Actions artifacts. The fork does not require Pion's Codecov
+account or an external upload token.
 
 ### Shared libraries
 Every Pion project is built using shared libraries, allowing others to review and reuse our libraries.
