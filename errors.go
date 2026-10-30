@@ -139,6 +139,10 @@ var (
 	// ErrNoSRTPProtectionProfile indicates that the DTLS handshake completed and no SRTP Protection Profile was chosen.
 	ErrNoSRTPProtectionProfile = errors.New("DTLS Handshake completed and no SRTP Protection Profile was chosen")
 
+	// ErrMediaDisabled indicates that RTP or RTCP was requested on a transport
+	// configured with SettingEngine.SetDTLSDataChannelsOnly.
+	ErrMediaDisabled = errors.New("media is disabled on a data-channel-only DTLS transport")
+
 	// ErrRTPHeaderEncryptionRequired indicates that the local endpoint requires
 	// RFC 9335 Cryptex negotiation, but the remote SDP did not negotiate it.
 	ErrRTPHeaderEncryptionRequired = errors.New("rtp header extension encryption required")

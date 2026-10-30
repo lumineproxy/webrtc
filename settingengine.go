@@ -67,6 +67,7 @@ type SettingEngine struct {
 		SRTCP *uint
 	}
 	dtls struct {
+		dataChannelsOnly              bool
 		insecureSkipHelloVerify       bool
 		disableInsecureSkipVerify     bool
 		retransmissionInterval        time.Duration
@@ -227,6 +228,14 @@ func (e *SettingEngine) EnableDataChannelBlockWrite(nonblockWrite bool) {
 // The default srtp protection profiles are provided by the function `defaultSrtpProtectionProfiles`.
 func (e *SettingEngine) SetSRTPProtectionProfiles(profiles ...dtls.SRTPProtectionProfile) {
 	e.srtpProtectionProfiles = profiles
+}
+
+// SetDTLSDataChannelsOnly disables DTLS-SRTP negotiation for data-channel-only
+// applications whose peers do not support the use_srtp extension. RTP and RTCP
+// are unavailable in this mode; DTLS encryption and peer verification are unchanged.
+// This setting takes precedence over SetSRTPProtectionProfiles.
+func (e *SettingEngine) SetDTLSDataChannelsOnly(enabled bool) {
+	e.dtls.dataChannelsOnly = enabled
 }
 
 // SetICETimeouts sets the behavior around ICE Timeouts

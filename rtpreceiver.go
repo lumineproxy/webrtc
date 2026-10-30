@@ -85,6 +85,9 @@ func (api *API) NewRTPReceiver(kind RTPCodecType, transport *DTLSTransport) (*RT
 	if transport == nil {
 		return nil, errRTPReceiverDTLSTransportNil
 	}
+	if transport.api.settingEngine.dtls.dataChannelsOnly {
+		return nil, ErrMediaDisabled
+	}
 
 	rtpReceiver := &RTPReceiver{
 		kind:       kind,
