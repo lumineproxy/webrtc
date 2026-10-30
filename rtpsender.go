@@ -63,6 +63,10 @@ func (api *API) NewRTPSender(track TrackLocal, transport *DTLSTransport) (*RTPSe
 	} else if transport == nil {
 		return nil, errRTPSenderDTLSTransportNil
 	}
+	if transport.api != nil && transport.api.settingEngine != nil &&
+		transport.api.settingEngine.dtls.dataChannelsOnly {
+		return nil, ErrMediaDisabled
+	}
 
 	id, err := randutil.GenerateCryptoRandomString(32, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	if err != nil {

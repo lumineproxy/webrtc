@@ -25,6 +25,20 @@ If this is your first time using WebRTC, don't worry! We have multiple [examples
 Pion WebRTC doesn't make any assumptions about where your audio, video or text come from. You can use FFmpeg, GStreamer, MLT or just serve a video file.
 This library only serves to transport, not create media.
 
+The Lumine fork provides `SettingEngine.SetDTLSDataChannelsOnly(true)` for
+NetherNet peers that exchange encrypted SCTP data channels without DTLS-SRTP's
+`use_srtp` extension. Pass the engine through `WithSettingEngine` when creating
+the API. This explicit opt-in omits SRTP profile negotiation and its
+post-handshake requirement, even if `SetSRTPProtectionProfiles` is also set.
+It rejects RTP sender/receiver creation and RTCP writes with `ErrMediaDisabled`;
+SRTP/SRTCP sessions cannot start. DTLS cipher selection, certificate exchange,
+fingerprint verification, and SCTP encryption are unchanged. Do not disable
+fingerprint verification to use this mode. Leave it off for audio/video:
+the default still requires a negotiated SRTP profile, including when a
+connection currently has only data channels.
+Stopped or closed RTP writers still report the closed-pipe error before
+requesting SRTP, even when their transport has not been configured.
+
 ### Safe
 Golang provides a great foundation to build safe network services.
 Especially when running a networked service that is highly concurrent bugs can be devastating.
@@ -34,7 +48,10 @@ If code comes from an RFC we try to make sure everything is commented with a lin
 This makes learning and debugging easier, this WebRTC library was written to also serve as a guide for others.
 
 ### Tested
-Every commit is tested via travis-ci Go provides fantastic facilities for testing, and more will be added as time goes on.
+The Lumine fork runs the supported Go-version race suites and browser interoperability checks in GitHub Actions. Native macOS race jobs use standard Intel runners because hosted arm64 jobs have been cancelled without acquiring a runner. Safari uses the explicit macOS 26 arm64 runner environment exercised by Pion's upstream browser matrix; the Intel image stalled before creating a WebDriver session. The browser matrix retains Chrome, Firefox, Edge, and Safari; WASM uses Ubuntu LTS and stable Node.js 24 with dependency engine checks enabled.
+Linux race tests and benchmarks keep their test logs and aggregate `cover.out`
+coverage as GitHub Actions artifacts. The fork does not require Pion's Codecov
+account or an external upload token.
 
 ### Shared libraries
 Every Pion project is built using shared libraries, allowing others to review and reuse our libraries.

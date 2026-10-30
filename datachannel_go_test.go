@@ -222,6 +222,7 @@ func TestDataChannelBufferedAmount(t *testing.T) { //nolint:cyclop
 		var nAnswerReceived uint32
 
 		done := make(chan bool)
+		notifyDone := sync.OnceFunc(func() { close(done) })
 
 		answerPC.OnDataChannel(func(answerDC *DataChannel) {
 			// Make sure this is the data channel we were looking for. (Not the one
@@ -252,7 +253,7 @@ func TestDataChannelBufferedAmount(t *testing.T) { //nolint:cyclop
 			answerDC.OnBufferedAmountLow(func() {
 				atomic.AddUint32(&nAnswerBufferedAmountLowCbs, 1)
 				if atomic.LoadUint32(&nOfferBufferedAmountLowCbs) > 0 {
-					done <- true
+					notifyDone()
 				}
 			})
 		})
@@ -283,7 +284,7 @@ func TestDataChannelBufferedAmount(t *testing.T) { //nolint:cyclop
 		offerDC.OnBufferedAmountLow(func() {
 			atomic.AddUint32(&nOfferBufferedAmountLowCbs, 1)
 			if atomic.LoadUint32(&nAnswerBufferedAmountLowCbs) > 0 {
-				done <- true
+				notifyDone()
 			}
 		})
 
@@ -292,10 +293,10 @@ func TestDataChannelBufferedAmount(t *testing.T) { //nolint:cyclop
 
 		closePair(t, offerPC, answerPC, done)
 
-		t.Logf("nOfferBufferedAmountLowCbs : %d", nOfferBufferedAmountLowCbs)
-		t.Logf("nAnswerBufferedAmountLowCbs: %d", nAnswerBufferedAmountLowCbs)
-		assert.True(t, nOfferBufferedAmountLowCbs > uint32(0), "callback should be made at least once")
-		assert.True(t, nAnswerBufferedAmountLowCbs > uint32(0), "callback should be made at least once")
+		t.Logf("nOfferBufferedAmountLowCbs : %d", atomic.LoadUint32(&nOfferBufferedAmountLowCbs))
+		t.Logf("nAnswerBufferedAmountLowCbs: %d", atomic.LoadUint32(&nAnswerBufferedAmountLowCbs))
+		assert.Positive(t, atomic.LoadUint32(&nOfferBufferedAmountLowCbs), "callback should be made at least once")
+		assert.Positive(t, atomic.LoadUint32(&nAnswerBufferedAmountLowCbs), "callback should be made at least once")
 	})
 
 	t.Run("set after datachannel becomes open", func(t *testing.T) {

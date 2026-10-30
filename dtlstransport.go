@@ -213,6 +213,10 @@ func (t *DTLSTransport) GetRemoteCertificate() []byte {
 // wantSRTP starts the SRTP sessions now, or once DTLS connects. It is called
 // when a negotiation brings media.
 func (t *DTLSTransport) wantSRTP() error {
+	if t.api != nil && t.api.settingEngine != nil && t.api.settingEngine.dtls.dataChannelsOnly {
+		return ErrMediaDisabled
+	}
+
 	t.lock.Lock()
 	defer t.lock.Unlock()
 	if t.srtpWanted {
@@ -228,6 +232,10 @@ func (t *DTLSTransport) wantSRTP() error {
 
 // startSRTP requires the caller holds the lock.
 func (t *DTLSTransport) startSRTP() error { //nolint:cyclop
+	if t.api.settingEngine.dtls.dataChannelsOnly {
+		return ErrMediaDisabled
+	}
+
 	srtpConfig := &srtp.Config{
 		Profile:       t.srtpProtectionProfile,
 		BufferFactory: t.api.settingEngine.BufferFactory,
@@ -410,8 +418,10 @@ func (t *DTLSTransport) prepareStart(remoteParameters DTLSParameters) (DTLSRole,
 		}
 	}
 
-	t.srtpEndpoint = t.iceTransport.newEndpoint(mux.MatchSRTP)
-	t.srtcpEndpoint = t.iceTransport.newEndpoint(mux.MatchSRTCP)
+	if !t.api.settingEngine.dtls.dataChannelsOnly {
+		t.srtpEndpoint = t.iceTransport.newEndpoint(mux.MatchSRTP)
+		t.srtcpEndpoint = t.iceTransport.newEndpoint(mux.MatchSRTCP)
+	}
 	t.remoteParameters = remoteParameters
 
 	cert := t.certificates[0]
@@ -426,11 +436,14 @@ func (t *DTLSTransport) prepareStart(remoteParameters DTLSParameters) (DTLSRole,
 func (t *DTLSTransport) dtlsSharedOptions(certificate tls.Certificate) []dtls.Option {
 	sharedOpts := []dtls.Option{
 		dtls.WithCertificates(certificate),
-		dtls.WithSRTPProtectionProfiles(t.srtpProtectionProfiles()...),
 		dtls.WithExtendedMasterSecret(t.api.settingEngine.dtls.extendedMasterSecret),
 		dtls.WithInsecureSkipVerify(!t.api.settingEngine.dtls.disableInsecureSkipVerify),
 		dtls.WithLoggerFactory(t.api.settingEngine.LoggerFactory),
 		dtls.WithVerifyPeerCertificate(t.verifyPeerCertificateFunc()),
+	}
+
+	if !t.api.settingEngine.dtls.dataChannelsOnly {
+		sharedOpts = append(sharedOpts, dtls.WithSRTPProtectionProfiles(t.srtpProtectionProfiles()...))
 	}
 
 	if t.api.settingEngine.dtls.customCipherSuites != nil {
@@ -605,24 +618,24 @@ func (t *DTLSTransport) handshakeDTLS(dtlsConn *dtls.Conn) error {
 }
 
 func (t *DTLSTransport) completeStart(dtlsConn *dtls.Conn) error {
-	srtpProtectionProfile, err := srtpProtectionProfileFromDTLSConn(dtlsConn)
-
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	if err != nil {
-		t.onStateChange(DTLSTransportStateFailed)
+	if !t.api.settingEngine.dtls.dataChannelsOnly {
+		profile, err := srtpProtectionProfileFromDTLSConn(dtlsConn)
+		if err != nil {
+			t.onStateChange(DTLSTransportStateFailed)
 
-		return err
+			return err
+		}
+		t.srtpProtectionProfile = profile
 	}
-
-	t.srtpProtectionProfile = srtpProtectionProfile
 	t.conn = dtlsConn
 	t.onStateChange(DTLSTransportStateConnected)
 
 	// SRTP starts once media is negotiated, so a connection with only data
 	// channels runs no SRTP sessions.
-	t.srtpCanStart = true
+	t.srtpCanStart = !t.api.settingEngine.dtls.dataChannelsOnly
 	if t.srtpWanted {
 		return t.startSRTP()
 	}
