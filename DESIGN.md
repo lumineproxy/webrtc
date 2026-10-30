@@ -48,7 +48,7 @@ If code comes from an RFC we try to make sure everything is commented with a lin
 This makes learning and debugging easier, this WebRTC library was written to also serve as a guide for others.
 
 ### Tested
-The Lumine fork runs the supported Go-version race suites and browser interoperability checks in GitHub Actions. Its local macOS jobs use standard Intel runners because hosted arm64 jobs have been cancelled without acquiring a runner. The browser matrix retains Chrome, Firefox, Edge, and Safari; WASM uses Ubuntu LTS and stable Node.js 24 with dependency engine checks enabled.
+The Lumine fork runs the supported Go-version race suites and browser interoperability checks in GitHub Actions. Native macOS race jobs use standard Intel runners because hosted arm64 jobs have been cancelled without acquiring a runner. Safari uses the explicit macOS 26 arm64 runner environment exercised by Pion's upstream browser matrix; the Intel image stalled before creating a WebDriver session. The browser matrix retains Chrome, Firefox, Edge, and Safari; WASM uses Ubuntu LTS and stable Node.js 24 with dependency engine checks enabled.
 Linux race tests and benchmarks keep their test logs and aggregate `cover.out`
 coverage as GitHub Actions artifacts. The fork does not require Pion's Codecov
 account or an external upload token.

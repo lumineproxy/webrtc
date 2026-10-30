@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Pion community <https://pion.ly>
 # SPDX-License-Identifier: MIT
 
-# Fork-maintained copy of Pion's interop matrix. Use the standard Intel
-# macOS runner while hosted arm64 capacity cannot acquire jobs.
+# Fork-maintained copy of Pion's interop matrix.
 name: Browser interoperability
 
 on:
@@ -35,7 +34,9 @@ jobs:
             browser: chrome
           - os: windows-latest
             browser: edge
-          - os: macos-26-intel
+          # Match upstream's passing Safari environment; Intel stalls before navigation.
+          # https://github.com/pion/webrtc/actions/runs/40982479519/job/123825593819
+          - os: macos-26
             browser: safari
     steps:
       - name: Check out browser interop
@@ -53,36 +54,6 @@ jobs:
           persist-credentials: false
       - name: Run browser interoperability tests
         uses: ./
-        env:
-          DEBUG: ${{ matrix.browser == 'safari' && 'vitest:browser:*' || '' }}
         with:
           webrtc-path: webrtc
           browser: ${{ matrix.browser }}
-      - name: Collect Safari startup diagnostics
-        if: failure() && matrix.browser == 'safari'
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/safari-diagnostics"
-          {
-            sw_vers
-            /usr/bin/safaridriver --version
-            defaults read /Applications/Safari.app/Contents/Info CFBundleShortVersionString
-          } > "$RUNNER_TEMP/safari-diagnostics/versions.txt"
-          ps -axo pid,ppid,state,etime,comm > "$RUNNER_TEMP/safari-diagnostics/processes.txt"
-          /usr/bin/log show --last 5m --style compact \
-            --predicate 'process == "safaridriver" OR process == "Safari"' \
-            > "$RUNNER_TEMP/safari-diagnostics/safari.log"
-      - name: Capture Safari startup screen
-        if: failure() && matrix.browser == 'safari'
-        shell: bash
-        run: |
-          mkdir -p "$RUNNER_TEMP/safari-diagnostics"
-          /usr/sbin/screencapture -x "$RUNNER_TEMP/safari-diagnostics/screen.png"
-      - name: Upload Safari startup diagnostics
-        if: failure() && matrix.browser == 'safari'
-        uses: actions/upload-artifact@v7
-        with:
-          name: safari-startup-${{ matrix.os }}
-          path: ${{ runner.temp }}/safari-diagnostics
-          if-no-files-found: error
-          retention-days: 7
