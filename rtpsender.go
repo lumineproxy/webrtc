@@ -63,7 +63,8 @@ func (api *API) NewRTPSender(track TrackLocal, transport *DTLSTransport) (*RTPSe
 	} else if transport == nil {
 		return nil, errRTPSenderDTLSTransportNil
 	}
-	if transport.api.settingEngine.dtls.dataChannelsOnly {
+	if transport.api != nil && transport.api.settingEngine != nil &&
+		transport.api.settingEngine.dtls.dataChannelsOnly {
 		return nil, ErrMediaDisabled
 	}
 

@@ -36,6 +36,8 @@ fingerprint verification, and SCTP encryption are unchanged. Do not disable
 fingerprint verification to use this mode. Leave it off for audio/video:
 the default still requires a negotiated SRTP profile, including when a
 connection currently has only data channels.
+Stopped or closed RTP writers still report the closed-pipe error before
+requesting SRTP, even when their transport has not been configured.
 
 ### Safe
 Golang provides a great foundation to build safe network services.

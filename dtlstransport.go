@@ -213,7 +213,7 @@ func (t *DTLSTransport) GetRemoteCertificate() []byte {
 // wantSRTP starts the SRTP sessions now, or once DTLS connects. It is called
 // when a negotiation brings media.
 func (t *DTLSTransport) wantSRTP() error {
-	if t.api.settingEngine.dtls.dataChannelsOnly {
+	if t.api != nil && t.api.settingEngine != nil && t.api.settingEngine.dtls.dataChannelsOnly {
 		return ErrMediaDisabled
 	}
 
