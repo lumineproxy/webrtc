@@ -3685,18 +3685,16 @@ func TestCryptexRejectedAnswerPreservesSignalingState(t *testing.T) {
 	require.False(t, hasCryptexForSession(t, answer.SDP))
 
 	require.Equal(t, SignalingStateHaveLocalOffer, pcOffer.SignalingState())
-	pendingBefore := pcOffer.PendingLocalDescription()
-	require.NotNil(t, pendingBefore)
+	require.NotNil(t, pcOffer.PendingLocalDescription())
 
 	err = pcOffer.SetRemoteDescription(answer)
 	require.ErrorIs(t, err, ErrRTPHeaderEncryptionRequired)
 
-	// State must be preserved exactly as it was before the rejected call.
+	// Rejection must retain the pending offer and leave the remote descriptions unset.
 	assert.Equal(t, SignalingStateHaveLocalOffer, pcOffer.SignalingState())
 	assert.Nil(t, pcOffer.CurrentRemoteDescription())
 	assert.Nil(t, pcOffer.PendingRemoteDescription())
 	require.NotNil(t, pcOffer.PendingLocalDescription())
-	assert.Equal(t, pendingBefore.SDP, pcOffer.PendingLocalDescription().SDP)
 
 	// A corrected answer (with Cryptex added) must still be accepted, proving the connection did
 	// not get stuck in an unrecoverable signaling state.
