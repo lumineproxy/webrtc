@@ -39,8 +39,12 @@ func TestDTLSDataChannelsOnlyRawPeer(t *testing.T) {
 				dataOnly         bool
 				peerSRTP         bool
 				wrongFingerprint bool
+				defaultProfiles  bool
 			}{
 				{name: "DataOnly", dataOnly: true},
+				{name: "DataOnlyWithSRTP", dataOnly: true, peerSRTP: true},
+				{name: "DataOnlyDefaultProfilesWithSRTP", dataOnly: true, peerSRTP: true, defaultProfiles: true},
+				{name: "DataOnlyWithSRTPWrongFingerprint", dataOnly: true, peerSRTP: true, wrongFingerprint: true},
 				{name: "WrongFingerprint", dataOnly: true, wrongFingerprint: true},
 				{name: "DefaultRequiresSRTP"},
 				{name: "DefaultWithSRTP", peerSRTP: true},
@@ -50,8 +54,11 @@ func TestDTLSDataChannelsOnlyRawPeer(t *testing.T) {
 					defer cancel()
 					var settings webrtc.SettingEngine
 					settings.SetDTLSDataChannelsOnly(tc.dataOnly)
-					// An explicit profile must not re-enable SRTP in data-only mode.
-					settings.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
+					// Profiles may be negotiated in the DTLS server role, but must not
+					// make a data-only client require SRTP or enable media.
+					if !tc.defaultProfiles {
+						settings.SetSRTPProtectionProfiles(dtls.SRTP_AEAD_AES_128_GCM)
+					}
 					settings.SetDTLSCipherSuites(dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256)
 					settings.SetDTLSConnectContextMaker(func() (context.Context, func()) { return ctx, nil })
 					settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
@@ -91,10 +98,11 @@ func TestDTLSDataChannelsOnlyRawPeer(t *testing.T) {
 					require.True(t, ok)
 					require.Equal(t, dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, state.CipherSuiteID)
 					_, selected := raw.SelectedSRTPProtectionProfile()
-					require.Equal(t, tc.peerSRTP, selected)
+					wantSRTP := tc.peerSRTP && (!tc.dataOnly || role == webrtc.DTLSRoleServer)
+					require.Equal(t, wantSRTP, selected)
 					select {
 					case advertised := <-hellos:
-						require.Equal(t, !tc.dataOnly, advertised, "actual outgoing hello use_srtp")
+						require.Equal(t, !tc.dataOnly || wantSRTP, advertised, "actual outgoing hello use_srtp")
 					case <-ctx.Done():
 						t.Fatal(ctx.Err())
 					}
@@ -334,4 +342,24 @@ func exchangeRawDataChannel(t *testing.T, ctx context.Context, api *webrtc.API, 
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
 	}
+}
+
+// An explicitly restricted server profile policy must remain authoritative.
+// Optional negotiation must not accept an SRTP profile outside that policy.
+func TestDTLSDataOnlyRejectsDisallowedSRTPProfile(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	var settings webrtc.SettingEngine
+	settings.SetDTLSDataChannelsOnly(true)
+	settings.SetSRTPProtectionProfiles(dtls.SRTP_AES128_CM_HMAC_SHA1_80)
+	settings.SetDTLSConnectContextMaker(func() (context.Context, func()) { return ctx, nil })
+	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	settings.SetIncludeLoopbackCandidate(true)
+	settings.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
+	settings.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
+	api := webrtc.NewAPI(webrtc.WithSettingEngine(settings))
+	transport, _, localErr, rawErr := rawDTLSPeer(t, ctx, api, webrtc.DTLSRoleServer, true, false)
+	require.ErrorContains(t, localErr, "client requested SRTP but we have no matching profiles")
+	require.Error(t, rawErr)
+	require.Equal(t, webrtc.DTLSTransportStateFailed, transport.State())
 }

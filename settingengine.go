@@ -230,10 +230,11 @@ func (e *SettingEngine) SetSRTPProtectionProfiles(profiles ...dtls.SRTPProtectio
 	e.srtpProtectionProfiles = profiles
 }
 
-// SetDTLSDataChannelsOnly disables DTLS-SRTP negotiation for data-channel-only
-// applications whose peers do not support the use_srtp extension. RTP and RTCP
-// are unavailable in this mode; DTLS encryption and peer verification are unchanged.
-// This setting takes precedence over SetSRTPProtectionProfiles.
+// SetDTLSDataChannelsOnly permits data-channel-only DTLS without requiring SRTP.
+// Clients omit use_srtp; servers negotiate it only when a peer offers it, using
+// SetSRTPProtectionProfiles or the default profiles. RTP and RTCP remain
+// unavailable even when a profile is negotiated. DTLS encryption and peer
+// verification are unchanged.
 func (e *SettingEngine) SetDTLSDataChannelsOnly(enabled bool) {
 	e.dtls.dataChannelsOnly = enabled
 }

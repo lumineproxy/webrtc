@@ -559,6 +559,14 @@ func (t *DTLSTransport) toDTLSServerOptions(sharedOpts []dtls.Option) []dtls.Ser
 	for _, opt := range sharedOpts {
 		serverOpts = append(serverOpts, opt)
 	}
+	if t.api.settingEngine.dtls.dataChannelsOnly {
+		// A data-only server must accept both native NetherNet peers that omit
+		// use_srtp and standard WebRTC peers that offer it. DTLS only negotiates
+		// these profiles when the client sends the extension; it does not require
+		// SRTP from a client that omits it. Keep client options profile-free so
+		// our outgoing ClientHello remains compatible with no-SRTP servers.
+		serverOpts = append(serverOpts, dtls.WithSRTPProtectionProfiles(t.srtpProtectionProfiles()...))
+	}
 
 	clientAuth := dtls.RequireAnyClientCert
 	if t.api.settingEngine.dtls.clientAuth != nil {
